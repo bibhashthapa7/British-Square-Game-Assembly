@@ -124,12 +124,26 @@ print_cell_top:
     la      $a0,vertical_bar
     syscall
 
+    mul     $s2,$s0,5
+    add     $s2,$s2,$s1
+
+    add     $t0,$s3,$s2       
+    lb      $t1,0($t0)       
+
+    beq     $t1,$zero,print_empty_top   
+
+    move    $a1,$t1
+    jal     print_player_piece
+    j       continue_cell_top
+
+print_empty_top:
     li      $v0,4
     la      $a0,space
     syscall
     syscall
     syscall
 
+continue_cell_top:
     addi    $s1,$s1,1
     li      $t0,5
     slt     $t1,$s1,$t0
@@ -164,25 +178,15 @@ print_cell_bottom:
 
     beq     $t1,$zero,print_number_label
 
-    li      $t2,1        
-    beq     $t1,$t2,print_player_1_move
+    move    $a1,$t1          
+    jal     print_player_piece
+    j       continue_cell_bottom
 
-    li      $t2,2         
-    beq     $t1,$t2,print_player_2_move
+print_number_label:
+    move    $a0,$s2
+    jal     print_number
 
-print_player_1_move:
-    li      $v0,4
-    la      $a0,player_1_piece
-    syscall
-    j       next_column
-
-print_player_2_move:
-    li      $v0,4
-    la      $a0,player_2_piece
-    syscall
-    j       next_column
-    
-next_column:
+continue_cell_bottom:
     addi    $s1,$s1,1       
     li      $t0,5
     slt     $t1,$s1,$t0  
@@ -219,10 +223,21 @@ next_column:
     addi    $sp,$sp,20
     jr      $ra
 
-print_number_label:
-    move    $a0,$s2
-    jal     print_number
-    j       next_column
+print_player_piece:
+    li      $v0,4
+    beq     $a1,1,load_player_1_piece
+    beq     $a1,2,load_player_2_piece
+    jr      $ra
+
+load_player_1_piece:
+    la      $a0,player_1_piece
+    syscall
+    jr      $ra
+
+load_player_2_piece:
+    la      $a0,player_2_piece
+    syscall
+    jr      $ra
 
 print_number:
     addi    $sp,$sp,-8
@@ -295,8 +310,13 @@ prompt_player:
     syscall
     move    $s0,$v0       
 
-    blt     $s0,-2,invalid_input
-    bgt     $s0,24,invalid_input
+    li      $t0,-2
+    slt     $t1,$s0,$t0      
+    bne     $t1,$zero,invalid_input
+
+    li      $t0,24
+    slt     $t1,$t0,$s0     
+    bne     $t1,$zero,invalid_input
 
     move    $v0,$s0
 
