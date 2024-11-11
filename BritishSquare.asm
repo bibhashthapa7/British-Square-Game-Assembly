@@ -21,15 +21,34 @@ space:
     .asciiz " "
 newline:
     .asciiz "\n"
+player_1_prompt:
+    .asciiz "\nPlayer X enter a move (-2 to quit, -1 to skip move): "
+player_2_prompt:
+    .asciiz "\nPlayer O enter a move (-2 to quit, -1 to skip move): "
+illegal_move_msg:
+    .asciiz "Illegal move, can't place first stone of game in middle square\n"
+illegal_location_msg:
+    .asciiz "Illegal location, try again\n"
+player_1_piece:
+    .asciiz "XXX"
+player_2_piece:
+    .asciiz "OOO"
 
     .text
     .globl main
 main:     
     jal     print_welcome_message
     jal     initialize_board
+
+    li      $s4,1
+
+game_loop:
     jal     print_board
 
-    #exit syscall
+    beq     $s4, 1, player_1_turn
+    beq     $s4, 2, player_2_turn
+
+exit_game:
     li      $v0,10
     syscall
 
@@ -144,6 +163,23 @@ print_cell_bottom:
     lb      $t1,0($t0)
 
     beq     $t1,$zero,print_number_label
+
+    li      $t2,1        
+    beq     $t1,$t2,print_player_1_move
+
+    li      $t2,2         
+    beq     $t1,$t2,print_player_2_move
+
+print_player_1_move:
+    li      $v0,4
+    la      $a0,player_1_piece
+    syscall
+    j       next_column
+
+print_player_2_move:
+    li      $v0,4
+    la      $a0,player_2_piece
+    syscall
     j       next_column
     
 next_column:
@@ -243,4 +279,73 @@ single_digit_number:
     lw      $s2,4($sp)
     lw      $ra,0($sp)
     addi    $sp,$sp,8
+    jr      $ra
+
+get_player_move:
+    addi    $sp,$sp,-8
+    sw      $ra,0($sp)
+    sw      $s0,4($sp)  
+
+prompt_player:
+    li      $v0,4
+    la      $a0,0($a0)     
+    syscall
+
+    li      $v0,5
+    syscall
+    move    $s0,$v0       
+
+    blt     $s0,-2,invalid_input
+    bgt     $s0,24,invalid_input
+
+    move    $v0,$s0
+
+    lw      $s0,4($sp)
+    lw      $ra,0($sp)
+    addi    $sp,$sp,8
+    jr      $ra
+
+invalid_input:
+    li      $v0,4
+    la      $a0,illegal_location_msg
+    syscall
+    j       prompt_player
+
+player_1_turn:
+    la      $a0,player_1_prompt
+    jal     get_player_move
+    move    $s5,$v0       
+    j       handle_move
+
+player_2_turn:
+    la      $a0,player_2_prompt
+    jal     get_player_move
+    move    $s5,$v0   
+
+handle_move:
+    beq     $s5,-2,exit_game
+    beq     $s5,-1,switch_player   
+
+    jal     place_move
+
+switch_player:
+    beq     $s4,1,set_player_2
+    li      $s4,1     
+    j       game_loop
+
+set_player_2:
+    li      $s4,2  
+    j       game_loop
+
+place_move:
+    addi    $sp,$sp,-4
+    sw      $ra,0($sp)
+
+    la      $t0,board
+    add     $t0,$t0,$s5
+
+    sb      $s4,0($t0)
+
+    lw      $ra,0($sp)
+    addi    $sp,$sp,4
     jr      $ra
