@@ -25,14 +25,20 @@ player_1_prompt:
     .asciiz "\nPlayer X enter a move (-2 to quit, -1 to skip move): "
 player_2_prompt:
     .asciiz "\nPlayer O enter a move (-2 to quit, -1 to skip move): "
-illegal_move_msg:
+illegal_move_message:
     .asciiz "Illegal move, can't place first stone of game in middle square\n"
-illegal_location_msg:
+illegal_location_message:
     .asciiz "Illegal location, try again\n"
+illegal_occupied_message:
+    .asciiz "Illegal move, square is occupied\n"
 player_1_piece:
     .asciiz "XXX"
 player_2_piece:
     .asciiz "OOO"
+error_type:
+    .byte 0
+game_started:
+    .byte 0
 
     .text
     .globl main
@@ -48,7 +54,7 @@ game_loop:
     beq     $s4, 1, player_1_turn
     beq     $s4, 2, player_2_turn
 
-exit_game:
+end_game:
     li      $v0,10
     syscall
 
@@ -134,7 +140,7 @@ print_cell_top:
 
     move    $a1,$t1
     jal     print_player_piece
-    j       continue_cell_top
+    j       print_cell_top_loop
 
 print_empty_top:
     li      $v0,4
@@ -143,7 +149,7 @@ print_empty_top:
     syscall
     syscall
 
-continue_cell_top:
+print_cell_top_loop:
     addi    $s1,$s1,1
     li      $t0,5
     slt     $t1,$s1,$t0
@@ -180,13 +186,13 @@ print_cell_bottom:
 
     move    $a1,$t1          
     jal     print_player_piece
-    j       continue_cell_bottom
+    j       print_cell_bottom_loop
 
 print_number_label:
     move    $a0,$s2
     jal     print_number
 
-continue_cell_bottom:
+print_cell_bottom_loop:
     addi    $s1,$s1,1       
     li      $t0,5
     slt     $t1,$s1,$t0  
@@ -301,35 +307,16 @@ get_player_move:
     sw      $ra,0($sp)
     sw      $s0,4($sp)  
 
-prompt_player:
     li      $v0,4
-    la      $a0,0($a0)     
     syscall
 
     li      $v0,5
-    syscall
-    move    $s0,$v0       
-
-    li      $t0,-2
-    slt     $t1,$s0,$t0      
-    bne     $t1,$zero,invalid_input
-
-    li      $t0,24
-    slt     $t1,$t0,$s0     
-    bne     $t1,$zero,invalid_input
-
-    move    $v0,$s0
+    syscall                 
 
     lw      $s0,4($sp)
     lw      $ra,0($sp)
     addi    $sp,$sp,8
     jr      $ra
-
-invalid_input:
-    li      $v0,4
-    la      $a0,illegal_location_msg
-    syscall
-    j       prompt_player
 
 player_1_turn:
     la      $a0,player_1_prompt
@@ -343,10 +330,112 @@ player_2_turn:
     move    $s5,$v0   
 
 handle_move:
-    beq     $s5,-2,exit_game
-    beq     $s5,-1,switch_player   
+    beq     $s5,-2,end_game
+    beq     $s5,-1,switch_player
+
+    jal     validate_move
+    beq     $v0, $zero, print_error
 
     jal     place_move
+    j       switch_player
+
+validate_move:
+    addi    $sp,$sp,-12
+    sw      $ra,0($sp)
+    sw      $s0,4($sp)
+    sw      $s1,8($sp)
+
+    move    $s0,$s5            
+    li      $s1,0              
+    sb      $s1,error_type
+
+    li      $s1,-2
+    slt     $t0,$s0,$s1      
+    bne     $t0,$zero,set_invalid_location
+
+    li      $s1,24
+    slt     $t0,$s1,$s0      
+    bne     $t0,$zero,set_invalid_location
+
+    li      $s1,-1
+    slt     $t0,$s1,$s0      
+    beq     $t0,$zero,return_valid_move
+
+    lb      $s1,game_started
+    bne     $s1,$zero,check_occupied
+
+    li      $s2,12             
+    bne     $s0,$s2,set_first_move_valid
+
+    li      $s1,1              
+    sb      $s1,error_type
+    j       return_invalid_move
+
+set_first_move_valid:
+    li      $s1,1
+    sb      $s1,game_started
+    j       check_occupied
+
+check_occupied:
+    la      $s1,board
+    add     $s1,$s1,$s0
+    lb      $s2,($s1)
+    beq     $s2,$zero,return_valid_move
+
+    li      $s1,2             
+    sb      $s1,error_type
+    j       return_invalid_move
+
+set_invalid_location:
+    li      $s1,3              
+    sb      $s1,error_type
+    j       return_invalid_move
+
+return_invalid_move:
+    li      $v0,0
+    j       end_validate_move
+
+return_valid_move:
+    li      $v0,1
+
+end_validate_move:
+    lw      $s1,8($sp)
+    lw      $s0,4($sp)
+    lw      $ra,0($sp)
+    addi    $sp,$sp,12
+    jr      $ra
+
+print_error:
+    addi    $sp,$sp,-8
+    sw      $ra,0($sp)
+    sw      $s0,4($sp)
+
+    li      $v0,4
+    lbu     $s0,error_type
+
+    li      $s1,1
+    beq     $s0,$s1,print_middle_error
+    li      $s1,2
+    beq     $s0,$s1,print_occupied_error
+
+print_illegal_location_error:
+    la      $a0,illegal_location_message
+    j       end_print_error
+
+print_middle_error:
+    la      $a0,illegal_move_message
+    j       end_print_error
+
+print_occupied_error:
+    la      $a0,illegal_occupied_message
+
+end_print_error:
+    syscall
+
+    lw      $s0,4($sp)
+    lw      $ra,0($sp)
+    addi    $sp,$sp,8
+    j       game_loop
 
 switch_player:
     beq     $s4,1,set_player_2
