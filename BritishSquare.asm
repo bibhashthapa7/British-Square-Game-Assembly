@@ -31,6 +31,8 @@ illegal_location_message:
     .asciiz "Illegal location, try again\n"
 illegal_occupied_message:
     .asciiz "Illegal move, square is occupied\n"
+illegal_blocked_message:
+    .asciiz "Illegal move, square is blocked\n"
 player_1_piece:
     .asciiz "XXX"
 player_2_piece:
@@ -254,9 +256,9 @@ print_number:
 
     li      $t0,10
     slt     $t1,$s2,$t0 
-    bne     $t1,$zero,single_digit_number
+    bne     $t1,$zero,print_single_digi_number
 
-double_digit_number:
+print_double_digit_number:
     div     $s2,$t0
     mflo    $t1
     mfhi    $t2
@@ -281,7 +283,7 @@ double_digit_number:
     addi    $sp,$sp,8
     jr      $ra
 
-single_digit_number:
+print_single_digi_number:
     addi    $t1,$s2,48
 
     la      $a0,number_buffer
@@ -340,54 +342,126 @@ handle_move:
     j       switch_player
 
 validate_move:
-    addi    $sp,$sp,-12
+    addi    $sp,$sp,-32       
     sw      $ra,0($sp)
     sw      $s0,4($sp)
     sw      $s1,8($sp)
+    sw      $s2,12($sp)
+    sw      $s3,16($sp)
+    sw      $s5,20($sp)
+    sw      $s6,24($sp)
+    sw      $s7,28($sp)
 
     move    $s0,$s5            
     li      $s1,0              
     sb      $s1,error_type
 
-    li      $s1,-2
-    slt     $t0,$s0,$s1      
-    bne     $t0,$zero,set_invalid_location
+    la      $s2,board         
 
-    li      $s1,24
-    slt     $t0,$s1,$s0      
-    bne     $t0,$zero,set_invalid_location
+    li      $t0,-2
+    slt     $t1,$s0,$t0        
+    bne     $t1,$zero,set_invalid_location_error
 
-    li      $s1,-1
-    slt     $t0,$s1,$s0      
-    beq     $t0,$zero,return_valid_move
+    li      $t0,24
+    slt     $t1,$t0,$s0        
+    bne     $t1,$zero,set_invalid_location_error
 
-    lb      $s1,game_started
-    bne     $s1,$zero,check_if_occupied
+    li      $t0,-1
+    slt     $t1,$t0,$s0        
+    beq     $t1,$zero,return_valid_move
 
-    li      $s2,12             
-    bne     $s0,$s2,set_first_move_valid
+    lb      $t0,game_started
+    bne     $t0,$zero,check_if_occupied
 
-    li      $s1,1              
+    li      $t0,12             
+    bne     $s0,$t0,set_first_move_valid
+
+    li      $s1,1            
+    sb      $s1,error_type
+    j       return_invalid_move
+
+set_invalid_location_error:
+    li      $s1,3             
     sb      $s1,error_type
     j       return_invalid_move
 
 set_first_move_valid:
-    li      $s1,1
-    sb      $s1,game_started
+    li      $t0,1
+    sb      $t0,game_started
     j       check_if_occupied
 
 check_if_occupied:
-    la      $s1,board
-    add     $s1,$s1,$s0
-    lb      $s2,0($s1)
-    beq     $s2,$zero,return_valid_move
+    add     $t0,$s2,$s0        
+    lb      $t1,0($t0)        
+    beq     $t1,$zero,check_if_blocked
 
-    li      $s1,2             
+    li      $s1,2            
     sb      $s1,error_type
     j       return_invalid_move
 
-set_invalid_location:
-    li      $s1,3              
+check_if_blocked:
+    li      $t0,5
+    div     $s0,$t0
+    mflo    $s3                
+    mfhi    $s5                
+
+    li      $t0,3
+    sub     $s6,$t0,$s4        
+    
+    jal     check_square_up
+    j       return_valid_move
+
+check_square_up:
+    slt     $t0,$zero,$s3      
+    beq     $t0,$zero,check_square_down
+
+    addi    $t1,$s3,-1          
+    mul     $t2,$t1,5          
+    add     $t2,$t2,$s5        
+    add     $t2,$s2,$t2        
+    lb      $t3,0($t2)         
+    beq     $t3,$s6,set_blocked_error
+
+check_square_down:
+    li      $t0,4
+    slt     $t1,$s3,$t0       
+    beq     $t1,$zero,check_square_left
+
+    add     $t2,$s3,1          
+    mul     $t3,$t2,5          
+    add     $t3,$t3,$s5        
+    add     $t3,$s2,$t3       
+    lb      $t4,0($t3)        
+    beq     $t4,$s6,set_blocked_error
+
+check_square_left:
+    slt     $t0,$zero,$s5      
+    beq     $t0,$zero,check_square_right
+
+    addi    $t1,$s5,-1          
+    mul     $t2,$s3,5          
+    add     $t2,$t2,$t1        
+    add     $t2,$s2,$t2        
+    lb      $t3,0($t2)         
+    beq     $t3,$s6,set_blocked_error
+
+check_square_right:
+    li      $t0,4
+    slt     $t1,$s5,$t0        
+    beq     $t1,$zero,end_check
+
+    add     $t2,$s5,1          
+    mul     $t3,$s3,5          
+    add     $t3,$t3,$t2        
+    add     $t3,$s2,$t3        
+    lb      $t4,0($t3)         
+    beq     $t4,$s6,set_blocked_error
+
+end_check:
+    jr      $ra
+
+set_blocked_error:
+    li      $s1,4             
     sb      $s1,error_type
     j       return_invalid_move
 
@@ -399,10 +473,15 @@ return_valid_move:
     li      $v0,1
 
 end_validate_move:
+    lw      $s7,28($sp)
+    lw      $s6,24($sp)
+    lw      $s5,20($sp)
+    lw      $s3,16($sp)
+    lw      $s2,12($sp)
     lw      $s1,8($sp)
     lw      $s0,4($sp)
     lw      $ra,0($sp)
-    addi    $sp,$sp,12
+    addi    $sp,$sp,32
     jr      $ra
 
 print_error:
@@ -413,10 +492,14 @@ print_error:
     li      $v0,4
     lbu     $s0,error_type
 
-    li      $s1,1
-    beq     $s0,$s1,print_middle_error
-    li      $s1,2
-    beq     $s0,$s1,print_occupied_error
+    li      $t0,1
+    beq     $s0,$t0,print_middle_error
+    li      $t0,2
+    beq     $s0,$t0,print_occupied_error
+    li      $t0,3
+    beq     $s0,$t0,print_illegal_location_error
+    li      $t0,4                        
+    beq     $s0,$t0,print_blocked_error
 
 print_illegal_location_error:
     la      $a0,illegal_location_message
@@ -428,6 +511,10 @@ print_middle_error:
 
 print_occupied_error:
     la      $a0,illegal_occupied_message
+    j       end_print_error
+
+print_blocked_error:
+    la      $a0,illegal_blocked_message
 
 end_print_error:
     syscall
@@ -438,8 +525,6 @@ end_print_error:
 
     beq     $s4,1,player_1_turn
     beq     $s4,2,player_2_turn
-    
-    j       game_loop
 
 switch_player:
     beq     $s4,1,set_player_2
