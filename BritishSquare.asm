@@ -78,7 +78,7 @@ initialize_board:
     addi    $sp,$sp,-12
     sw      $ra,0($sp)
     sw      $s0,4($sp)      #board base address
-    sw      $s1,8($sp)      #cell counter
+    sw      $s1,8($sp)      #square counter
 
     la      $s0,board
     li      $s1,0
@@ -125,7 +125,7 @@ print_row_divider:
 
     li      $s1,0
 
-print_cell_top:
+print_top_square:
     li      $v0,4
     la      $a0,vertical_bar
     syscall
@@ -140,7 +140,7 @@ print_cell_top:
 
     move    $a1,$t1
     jal     print_player_piece
-    j       print_cell_top_loop
+    j       print_top_square_loop
 
 print_empty_top:
     li      $v0,4
@@ -149,11 +149,11 @@ print_empty_top:
     syscall
     syscall
 
-print_cell_top_loop:
+print_top_square_loop:
     addi    $s1,$s1,1
     li      $t0,5
     slt     $t1,$s1,$t0
-    bne     $t1,$zero,print_cell_top
+    bne     $t1,$zero,print_top_square
 
     li      $v0,4
     la      $a0,vertical_bar
@@ -171,7 +171,7 @@ print_cell_top_loop:
 
     li      $s1,0
 
-print_cell_bottom:
+print_bottom_square:
     li      $v0,4
     la      $a0,vertical_bar    
     syscall
@@ -186,17 +186,17 @@ print_cell_bottom:
 
     move    $a1,$t1          
     jal     print_player_piece
-    j       print_cell_bottom_loop
+    j       print_bottom_square_loop
 
 print_number_label:
     move    $a0,$s2
     jal     print_number
 
-print_cell_bottom_loop:
+print_bottom_square_loop:
     addi    $s1,$s1,1       
     li      $t0,5
     slt     $t1,$s1,$t0  
-    bne     $t1,$zero,print_cell_bottom
+    bne     $t1,$zero,print_bottom_square
 
     li      $v0,4
     la      $a0, vertical_bar
@@ -362,7 +362,7 @@ validate_move:
     beq     $t0,$zero,return_valid_move
 
     lb      $s1,game_started
-    bne     $s1,$zero,check_occupied
+    bne     $s1,$zero,check_if_occupied
 
     li      $s2,12             
     bne     $s0,$s2,set_first_move_valid
@@ -374,12 +374,12 @@ validate_move:
 set_first_move_valid:
     li      $s1,1
     sb      $s1,game_started
-    j       check_occupied
+    j       check_if_occupied
 
-check_occupied:
+check_if_occupied:
     la      $s1,board
     add     $s1,$s1,$s0
-    lb      $s2,($s1)
+    lb      $s2,0($s1)
     beq     $s2,$zero,return_valid_move
 
     li      $s1,2             
@@ -435,6 +435,10 @@ end_print_error:
     lw      $s0,4($sp)
     lw      $ra,0($sp)
     addi    $sp,$sp,8
+
+    beq     $s4,1,player_1_turn
+    beq     $s4,2,player_2_turn
+    
     j       game_loop
 
 switch_player:
