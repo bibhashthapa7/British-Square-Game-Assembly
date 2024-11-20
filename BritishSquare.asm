@@ -1,3 +1,17 @@
+#
+# FILE: BritishSquare.asm
+# AUTHOR: Bibhash Thapa, bt2394
+# SECTION: 02
+#
+# DESCRIPTION:
+#   This program simulates the British Square game where 2 players take
+# turns making moves on a 5x5 board. Players can not place pieces adjacent
+# to their opponent's pieces. The game ends when there are no legal moves 
+# remaining and the player with the most pieces on the board at the end of 
+# the game wins.
+#
+
+# DATA BLOCK
     .data
     .align 2
 
@@ -5,10 +19,6 @@ welcome_line_1:
     .asciiz "\n****************************\n"
 welcome_line_2:  
     .asciiz "**     British Square     **"
-board:
-    .space 25
-number_buffer:
-    .space 4
 top_board_border:
     .asciiz "\n***********************\n"
 bottom_board_border:
@@ -53,7 +63,7 @@ player_1_total_message:
     .asciiz "X's total="
 player_2_total_message:
     .asciiz " O's total="
-winner_star_border:
+winner_border:
     .asciiz "************************\n"
 player_1_wins_message:
     .asciiz "**   Player X wins!   **\n"
@@ -61,7 +71,10 @@ player_2_wins_message:
     .asciiz "**   Player O wins!   **\n"
 game_tie_message:
     .asciiz "**   Game is a tie    **\n"
-
+board:
+    .space 25
+number_buffer:
+    .space 4
 error_type:
     .byte 0
 game_started:
@@ -69,15 +82,23 @@ game_started:
 temp_game_started:
     .byte 0
 
+# TEXT BLOCK
     .text
     .globl main
     
+#
+# Name: main
+# Description: Initializes the game and starts the game loop
+# Arguments: none
+# Returns: none
+#
 main:     
     jal     print_welcome_message
     jal     initialize_board
 
     li      $s0,1
 
+# Main game loop which prints updated board and processes each player's turn
 game_loop:
     jal     print_board
 
@@ -91,13 +112,15 @@ game_loop:
     beq     $s0,$t0,player_2_turn
     j       game_loop
 
+# Handles case when current player has no legal moves
 handle_no_moves:
     li      $t0,1
-    beq     $s0,$t0,check_player_2_wins
+    beq     $s0,$t0,check_player_2_legal_moves
     li      $t0,2
-    beq     $s0,$t0,check_player_1_wins
+    beq     $s0,$t0,check_player_1_legal_moves
 
-check_player_2_wins:
+# Checks if player 2 has any remaining legal moves
+check_player_2_legal_moves:
     li      $s0,2              
     move    $a0,$s0            
     jal     check_legal_moves
@@ -107,7 +130,8 @@ check_player_2_wins:
     syscall
     j       player_2_turn
 
-check_player_1_wins:
+# Checks if player 1 has any remaining legal moves
+check_player_1_legal_moves:
     li      $s0,1              
     move    $a0,$s0            
     jal     check_legal_moves
@@ -117,11 +141,18 @@ check_player_1_wins:
     syscall
     j       player_1_turn
 
+# Handles the case where both players have no legal moves remaining
 handle_both_player_no_moves:
     li      $a0,0
     jal     print_game_results
     j       end_game      
 
+#
+# Name: check_legal_moves
+# Description: Checks if the current player has any legal moves
+# Arguments:    a0: current player (1 or 2)
+# Returns:      v0: 1 if there are legal moves remaining, 0 otherwise  
+#    
 check_legal_moves:
     addi    $sp,$sp,-36         
     sw      $ra,0($sp)
@@ -152,12 +183,12 @@ check_position_loop:
     sb      $s4,game_started
 
     jal     validate_move
-    beq     $v0,$zero,continue_check
+    beq     $v0,$zero,check_position
 
     li      $s5,1
     j       end_check_legal
 
-continue_check:
+check_position:
     addi    $s0,$s0,1           
     li      $s6,25
     slt     $t0,$s0,$s6
@@ -200,6 +231,12 @@ print_quit_message:
     syscall
     j       end_game
 
+#
+# Name: print_welcome_message
+# Description: Prints the welcome message at the start of the game
+# Arguments: none
+# Returns: none
+#
 print_welcome_message:
     addi    $sp,$sp,-4
     sw      $ra,0($sp)
@@ -216,6 +253,12 @@ print_welcome_message:
     addi    $sp,$sp,4
     jr      $ra
 
+#
+# Name: initialize_board
+# Description: Initializes the game board by setting all positions to zero
+# Arguments: none
+# Returns: none
+#
 initialize_board:
     addi    $sp,$sp,-12
     sw      $ra,0($sp)
@@ -240,6 +283,11 @@ initialize_board_loop:
     addi    $sp,$sp,12
     jr      $ra
 
+#
+# Name: print_board
+# Description: Prints the current updated state of the game board
+# Arguments: none
+# Returns: none
 print_board:
     addi    $sp,$sp,-20
     sw      $ra,0($sp)
@@ -389,6 +437,12 @@ load_player_2_piece:
     syscall
     jr      $ra
 
+# 
+# Name: print_number
+# Description: Print the position index of the square on the board
+# Arguments:    a0: number to print (position index)
+# Returns: none
+#
 print_number:
     addi    $sp,$sp,-8
     sw      $ra,0($sp)
@@ -446,6 +500,11 @@ print_single_digit_number:
     addi    $sp,$sp,8
     jr      $ra
 
+#
+# Name: get_player_move
+# Description: Prompts the player to make a move and reads the move
+# Arguments: none
+# Returns:      v0: the move number input by the player 
 get_player_move:
     addi    $sp,$sp,-8
     sw      $ra,0($sp)
@@ -492,6 +551,12 @@ handle_quit:
     jal     print_game_results
     j       quit_game
 
+#
+# Name: validate_move
+# Description: Validates the player's move based on the rules of the game
+# Arguments:    a0: current player (1 or 2)
+#               a1: move position
+# Returns:      v0: 1 if player's move is valid, 0 otherwise
 validate_move:
     addi    $sp,$sp,-32
     sw      $ra,0($sp)
@@ -633,6 +698,12 @@ end_validate_move:
     addi    $sp,$sp,32
     jr      $ra
 
+#
+# Name: print_error
+# Description: Prints the error message based on the error type
+# Arguments: none
+# Returns: none
+#
 print_error:
     addi    $sp,$sp,-8
     sw      $ra,0($sp)
@@ -687,6 +758,12 @@ set_player_2:
     li      $s0,2  
     j       game_loop
 
+#
+# Name: place_move
+# Description: Places the player's move on the game board
+# Arguments: none
+# Returns: none
+#
 place_move:
     addi    $sp,$sp,-4
     sw      $ra,0($sp)
@@ -700,6 +777,12 @@ place_move:
     addi    $sp,$sp,4
     jr      $ra
 
+#
+# Name: print_game_results
+# Description: Prints the game results, including total pieces and winner.
+# Arguments:    a0 - 1 if the game was quit by player, 0 if ended normally 
+# Returns: none
+#
 print_game_results:
     addi    $sp,$sp,-20
     sw      $ra,0($sp)
@@ -762,7 +845,7 @@ print_total_score:
 
     bne     $s3,$zero,skip_print_winner
 
-    la      $a0,winner_star_border
+    la      $a0,winner_border
     syscall
 
     
@@ -782,7 +865,7 @@ player_2_wins:
 
 print_winner:
     syscall
-    la      $a0,winner_star_border
+    la      $a0,winner_border
     syscall
 
     lw      $s3,16($sp)
