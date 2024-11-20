@@ -9,7 +9,9 @@ board:
     .space 25
 number_buffer:
     .space 4
-board_star_border:
+top_board_border:
+    .asciiz "\n***********************\n"
+bottom_board_border:
     .asciiz "***********************\n"
 row_divider:
     .asciiz "*+---+---+---+---+---+*\n"
@@ -26,13 +28,13 @@ player_1_prompt:
 player_2_prompt:
     .asciiz "\nPlayer O enter a move (-2 to quit, -1 to skip move): "
 illegal_move_message:
-    .asciiz "Illegal move, can't place first stone of game in middle square\n"
+    .asciiz "\nIllegal move, can't place first stone of game in middle square\n"
 illegal_location_message:
-    .asciiz "Illegal location, try again\n"
+    .asciiz "\nIllegal location, try again\n"
 illegal_occupied_message:
-    .asciiz "Illegal move, square is occupied\n"
+    .asciiz "\nIllegal move, square is occupied\n"
 illegal_blocked_message:
-    .asciiz "Illegal move, square is blocked\n"
+    .asciiz "\nIllegal move, square is blocked\n"
 player_1_piece:
     .asciiz "XXX"
 player_2_piece:
@@ -46,7 +48,7 @@ player_1_quit_message:
 player_2_quit_message:
     .asciiz "Player O quit the game.\n"
 game_totals_message:
-    .asciiz "Game Totals\n"
+    .asciiz "\nGame Totals\n"
 player_1_total_message:
     .asciiz "X's total="
 player_2_total_message:
@@ -83,13 +85,17 @@ game_loop:
     jal     check_legal_moves
     beq     $v0,$zero,handle_no_moves  
 
-    beq     $s0,1,player_1_turn
-    beq     $s0,2,player_2_turn
+    li      $t0,1
+    beq     $s0,$t0,player_1_turn
+    li      $t0,2
+    beq     $s0,$t0,player_2_turn
     j       game_loop
 
 handle_no_moves:
-    beq     $s0,1,check_player_2_wins
-    beq     $s0,2,check_player_1_wins
+    li      $t0,1
+    beq     $s0,$t0,check_player_2_wins
+    li      $t0,2
+    beq     $s0,$t0,check_player_1_wins
 
 check_player_2_wins:
     li      $s0,2              
@@ -179,8 +185,9 @@ end_game:
     syscall
 
 quit_game:
-    li      $v0,4               
-    beq     $s0,1,print_player_1_quit
+    li      $v0,4   
+    li      $t0,1            
+    beq     $s0,$t0,print_player_1_quit
 
 print_player_2_quit:
     la      $a0,player_2_quit_message
@@ -203,8 +210,6 @@ print_welcome_message:
     la      $a0,welcome_line_2
     syscall
     la      $a0,welcome_line_1
-    syscall
-    la      $a0,newline
     syscall
 
     lw      $ra,0($sp)
@@ -245,7 +250,7 @@ print_board:
 
     #print top border
     li      $v0,4
-    la      $a0,board_star_border
+    la      $a0,top_board_border
     syscall 
 
     li      $s0,0
@@ -355,7 +360,7 @@ print_bottom_square:
     syscall
 
     li      $v0,4
-    la      $a0,board_star_border
+    la      $a0,bottom_board_border
     syscall
 
     lw      $s3,16($sp)
@@ -368,8 +373,10 @@ print_bottom_square:
 
 print_player_piece:
     li      $v0,4
-    beq     $a1,1,load_player_1_piece
-    beq     $a1,2,load_player_2_piece
+    li      $t0,1
+    beq     $a1,$t0,load_player_1_piece
+    li      $t0,2
+    beq     $a1,$t0,load_player_2_piece
     jr      $ra
 
 load_player_1_piece:
@@ -467,8 +474,10 @@ player_2_turn:
     move    $s1,$v0   
 
 handle_move:
-    beq     $s1,-2,handle_quit
-    beq     $s1,-1,switch_player
+    li      $t0,-2
+    beq     $s1,$t0,handle_quit
+    li      $t0,-1
+    beq     $s1,$t0,switch_player
 
     move    $a0,$s0
     move    $a1,$s1
@@ -663,11 +672,14 @@ end_print_error:
     lw      $ra,0($sp)
     addi    $sp,$sp,8
 
-    beq     $s0,1,player_1_turn
-    beq     $s0,2,player_2_turn
+    li      $t0,1
+    beq     $s0,$t0,player_1_turn
+    li      $t0,2
+    beq     $s0,$t0,player_2_turn
 
 switch_player:
-    beq     $s0,1,set_player_2
+    li      $t0,1
+    beq     $s0,$t0,set_player_2
     li      $s0,1     
     j       game_loop
 
@@ -705,7 +717,6 @@ print_game_results:
 count_pieces_loop:
     add     $t1,$t0,$s2    
     lb      $t2,0($t1)      
-    
     li      $t3,1
     beq     $t2,$t3,count_player_1_wins
     li      $t3,2
@@ -724,11 +735,6 @@ count_pieces:
     li      $t3,25
     slt     $t4,$s2,$t3
     bne     $t4,$zero,count_pieces_loop
-
-    bne     $s3,$zero,print_total_score    
-    li      $v0,4
-    la      $a0,newline
-    syscall
 
 print_total_score:
     li      $v0,4
