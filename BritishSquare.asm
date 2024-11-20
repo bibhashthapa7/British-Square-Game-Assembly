@@ -1,4 +1,4 @@
-.data
+    .data
     .align 2
 
 welcome_line_1:  
@@ -41,6 +41,10 @@ player_1_no_moves_message:
     .asciiz "\nPlayer X has no legal moves, turn skipped.\n"
 player_2_no_moves_message:
     .asciiz "\nPlayer O has no legal moves, turn skipped.\n"
+player_1_quit_message:
+    .asciiz "Player X quit the game.\n"
+player_2_quit_message:
+    .asciiz "Player O quit the game.\n"
 game_totals_message:
     .asciiz "Game Totals\n"
 player_1_total_message:
@@ -65,49 +69,50 @@ temp_game_started:
 
     .text
     .globl main
+    
 main:     
     jal     print_welcome_message
     jal     initialize_board
 
-    li      $s4,1
+    li      $s0,1
 
 game_loop:
     jal     print_board
 
-    move    $a0,$s4         
+    move    $a0,$s0         
     jal     check_legal_moves
     beq     $v0,$zero,handle_no_moves  
 
-    beq     $s4,1,player_1_turn
-    beq     $s4,2,player_2_turn
+    beq     $s0,1,player_1_turn
+    beq     $s0,2,player_2_turn
     j       game_loop
 
 handle_no_moves:
-    beq     $s4,1,check_player_2_wins
-    beq     $s4,2,check_player_1_wins
+    beq     $s0,1,check_player_2_wins
+    beq     $s0,2,check_player_1_wins
 
 check_player_2_wins:
-    li      $s4,2              
-    move    $a0,$s4            
+    li      $s0,2              
+    move    $a0,$s0            
     jal     check_legal_moves
-    beq     $v0,$zero, both_no_moves  
+    beq     $v0,$zero,handle_both_player_no_moves  
     li      $v0,4
     la      $a0,player_1_no_moves_message
     syscall
-    j       game_loop
+    j       player_2_turn
 
 check_player_1_wins:
-    li      $s4,1              
-    move    $a0,$s4            
+    li      $s0,1              
+    move    $a0,$s0            
     jal     check_legal_moves
-    beq     $v0,$zero,both_no_moves  
-
+    beq     $v0,$zero,handle_both_player_no_moves  
     li      $v0,4
     la      $a0,player_2_no_moves_message
     syscall
-    j       game_loop
+    j       player_1_turn
 
-both_no_moves:
+handle_both_player_no_moves:
+    li      $a0,0
     jal     print_game_results
     j       end_game      
 
@@ -123,44 +128,39 @@ check_legal_moves:
     sw      $s6,28($sp)
     sw      $s7,32($sp)
 
-    lb      $s7,game_started     
+    move    $s2,$a0               
+    lb      $s3,game_started      
     sb      $zero,temp_game_started 
 
-    move    $s3,$s4               
-    move    $s5,$s5               
-    move    $s4,$a0               
+    sb      $s3,temp_game_started
 
     li      $s0,0                 
-    la      $s2,board             
-    li      $s6,0                 
-
-    lb      $t0,game_started
-    sb      $t0,temp_game_started
+    la      $s1,board             
+    li      $s5,0                 
 
 check_position_loop:
-    move    $s5,$s0              
+    move    $a0,$s2
+    move    $a1,$s0              
 
-    lb      $t0,temp_game_started
-    sb      $t0,game_started
+    lb      $s4,temp_game_started
+    sb      $s4,game_started
 
     jal     validate_move
     beq     $v0,$zero,continue_check
 
-    li      $s6,1
+    li      $s5,1
     j       end_check_legal
 
 continue_check:
     addi    $s0,$s0,1           
-    li      $t0,25
-    slt     $t1,$s0,$t0
-    bne     $t1,$zero,check_position_loop
+    li      $s6,25
+    slt     $t0,$s0,$s6
+    bne     $t0,$zero,check_position_loop
 
 end_check_legal:
-    sb      $s7,game_started   
+    sb      $s3,game_started   
 
-    move    $s4,$s3              
-    move    $s5,$s5               
-    move    $v0,$s6              
+    move    $v0,$s5              
 
     lw      $s7,32($sp)
     lw      $s6,28($sp)
@@ -179,19 +179,32 @@ end_game:
     syscall
 
 quit_game:
-    jal     print_game_results   
+    li      $v0,4               
+    beq     $s0,1,print_player_1_quit
+
+print_player_2_quit:
+    la      $a0,player_2_quit_message
+    j       print_quit_message
+
+print_player_1_quit:
+    la      $a0,player_1_quit_message
+
+print_quit_message:
+    syscall
     j       end_game
 
 print_welcome_message:
     addi    $sp,$sp,-4
     sw      $ra,0($sp)
 
-    li      $v0, 4
+    li      $v0,4
     la      $a0,welcome_line_1
     syscall
     la      $a0,welcome_line_2
     syscall
     la      $a0,welcome_line_1
+    syscall
+    la      $a0,newline
     syscall
 
     lw      $ra,0($sp)
@@ -323,7 +336,7 @@ print_bottom_square:
     bne     $t1,$zero,print_bottom_square_loop
 
     li      $v0,4
-    la      $a0, vertical_bar
+    la      $a0,vertical_bar
     syscall
 
     li      $v0,4
@@ -445,26 +458,33 @@ get_player_move:
 player_1_turn:
     la      $a0,player_1_prompt
     jal     get_player_move
-    move    $s5,$v0       
+    move    $s1,$v0       
     j       handle_move
 
 player_2_turn:
     la      $a0,player_2_prompt
     jal     get_player_move
-    move    $s5,$v0   
+    move    $s1,$v0   
 
 handle_move:
-    beq     $s5,-2,quit_game
-    beq     $s5,-1,switch_player
+    beq     $s1,-2,handle_quit
+    beq     $s1,-1,switch_player
 
+    move    $a0,$s0
+    move    $a1,$s1
     jal     validate_move
-    beq     $v0, $zero, print_error
+    beq     $v0,$zero,print_error
 
     jal     place_move
     j       switch_player
 
+handle_quit:                         
+    li      $a0,1                   
+    jal     print_game_results
+    j       quit_game
+
 validate_move:
-    addi    $sp,$sp,-32       
+    addi    $sp,$sp,-32
     sw      $ra,0($sp)
     sw      $s0,4($sp)
     sw      $s1,8($sp)
@@ -474,7 +494,7 @@ validate_move:
     sw      $s6,24($sp)
     sw      $s7,28($sp)
 
-    move    $s0,$s5            
+    move    $s0,$a1            
     li      $s1,0              
     sb      $s1,error_type
 
@@ -529,7 +549,7 @@ check_if_blocked:
     mfhi    $s5                
 
     li      $t0,3
-    sub     $s6,$t0,$s4        
+    sub     $s6,$t0,$a0        
     
 check_square_up:
     slt     $t0,$zero,$s3      
@@ -607,19 +627,19 @@ end_validate_move:
 print_error:
     addi    $sp,$sp,-8
     sw      $ra,0($sp)
-    sw      $s0,4($sp)
+    sw      $s1,4($sp)
 
     li      $v0,4
-    lbu     $s0,error_type
+    lbu     $s1,error_type
 
     li      $t0,1
-    beq     $s0,$t0,print_middle_error
+    beq     $s1,$t0,print_middle_error
     li      $t0,2
-    beq     $s0,$t0,print_occupied_error
+    beq     $s1,$t0,print_occupied_error
     li      $t0,3
-    beq     $s0,$t0,print_illegal_location_error
+    beq     $s1,$t0,print_illegal_location_error
     li      $t0,4                        
-    beq     $s0,$t0,print_blocked_error
+    beq     $s1,$t0,print_blocked_error
 
 print_illegal_location_error:
     la      $a0,illegal_location_message
@@ -639,20 +659,20 @@ print_blocked_error:
 end_print_error:
     syscall
 
-    lw      $s0,4($sp)
+    lw      $s1,4($sp)
     lw      $ra,0($sp)
     addi    $sp,$sp,8
 
-    beq     $s4,1,player_1_turn
-    beq     $s4,2,player_2_turn
+    beq     $s0,1,player_1_turn
+    beq     $s0,2,player_2_turn
 
 switch_player:
-    beq     $s4,1,set_player_2
-    li      $s4,1     
+    beq     $s0,1,set_player_2
+    li      $s0,1     
     j       game_loop
 
 set_player_2:
-    li      $s4,2  
+    li      $s0,2  
     j       game_loop
 
 place_move:
@@ -660,25 +680,27 @@ place_move:
     sw      $ra,0($sp)
 
     la      $t0,board
-    add     $t0,$t0,$s5
+    add     $t0,$t0,$s1
 
-    sb      $s4,0($t0)
+    sb      $s0,0($t0)
 
     lw      $ra,0($sp)
     addi    $sp,$sp,4
     jr      $ra
 
 print_game_results:
-    addi    $sp,$sp,-16
+    addi    $sp,$sp,-20
     sw      $ra,0($sp)
     sw      $s0,4($sp)      
     sw      $s1,8($sp)      
-    sw      $s2,12($sp)     
+    sw      $s2,12($sp)   
+    sw      $s3,16($sp)  
 
     li      $s0,0           
     li      $s1,0           
     li      $s2,0           
-    la      $t0,board       
+    la      $t0,board   
+    move    $s3,$a0    
 
 count_pieces_loop:
     add     $t1,$t0,$s2    
@@ -703,9 +725,13 @@ count_pieces:
     slt     $t4,$s2,$t3
     bne     $t4,$zero,count_pieces_loop
 
+    bne     $s3,$zero,print_total_score    
     li      $v0,4
     la      $a0,newline
     syscall
+
+print_total_score:
+    li      $v0,4
     la      $a0,game_totals_message
     syscall
     
@@ -727,6 +753,8 @@ count_pieces:
     li      $v0,4
     la      $a0,newline
     syscall
+
+    bne     $s3,$zero,skip_print_winner
 
     la      $a0,winner_star_border
     syscall
@@ -751,9 +779,19 @@ print_winner:
     la      $a0,winner_star_border
     syscall
 
+    lw      $s3,16($sp)
     lw      $s2,12($sp)
     lw      $s1,8($sp)
     lw      $s0,4($sp)
     lw      $ra,0($sp)
-    addi    $sp,$sp,16
+    addi    $sp,$sp,20
+    jr      $ra
+
+skip_print_winner:
+    lw      $s3,16($sp)
+    lw      $s2,12($sp)
+    lw      $s1,8($sp)
+    lw      $s0,4($sp)
+    lw      $ra,0($sp)
+    addi    $sp,$sp,20
     jr      $ra
