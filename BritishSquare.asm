@@ -77,7 +77,7 @@ game_tie_message:
 board:
     .space 25               #space allocated for the game board state (5x5)
 number_buffer:
-    .space 4                #space for storing temporary numeric values
+    .space 4                #space for storing number conversion
 error_type:
     .byte 0                 #byte for tracking the type of error
 game_started:
