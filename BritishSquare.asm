@@ -4,7 +4,7 @@
 # SECTION: 02
 #
 # DESCRIPTION:
-#   This program simulates the British Square game where 2 players take
+#   This program simulates the British Square game where two players take
 # turns making moves on a 5x5 board. Players can not place pieces adjacent
 # to their opponent's pieces. The game ends when there are no legal moves 
 # remaining and the player with the most pieces on the board at the end of 
@@ -139,7 +139,7 @@ check_player_2_legal_moves:
     jal     check_legal_moves
     beq     $v0,$zero,handle_both_player_no_moves  
 
-    #print player 1 has no moves message 
+    #print player 1 has no moves message if player 2 has moves left
     li      $v0,4
     la      $a0,player_1_no_moves_message
     syscall
@@ -156,7 +156,7 @@ check_player_1_legal_moves:
     jal     check_legal_moves
     beq     $v0,$zero,handle_both_player_no_moves
 
-    #print player 2 has no moves message 
+    #print player 2 has no moves message if player 1 has moves left
     li      $v0,4
     la      $a0,player_2_no_moves_message
     syscall
@@ -175,7 +175,7 @@ handle_both_player_no_moves:
 
 #
 # Name: check_legal_moves
-# Description: Checks if the current player has any legal moves
+# Description: Checks if the current player has any legal moves remaining
 # Arguments:    a0: current player (1 or 2)
 # Returns:      v0: 1 if there are legal moves remaining, 0 otherwise  
 #    
@@ -209,7 +209,7 @@ check_position_loop:
     move    $a0,$s2
     move    $a1,$s0              
 
-    #restore game_started before each validation
+    #restore game_started value before each validation
     lb      $s4,temp_game_started
     sb      $s4,game_started
 
@@ -223,6 +223,7 @@ check_position_loop:
     li      $s5,1
     j       end_check_legal
 
+# Move to the next position index and continue checking legal moves
 check_position_next:
     addi    $s0,$s0,1       #increment position index           
 
@@ -413,6 +414,7 @@ print_empty_top:
     syscall
     syscall
 
+# Proceed to top half square in next column 
 print_top_square_next:
     #increment column counter
     addi    $s1,$s1,1
@@ -468,6 +470,7 @@ print_number_label:
     move    $a0,$s2         #store position index to a0
     jal     print_number
 
+# Proceed to bottom half square in next column 
 print_bottom_square_next:
     #increment column index
     addi    $s1,$s1,1       
@@ -503,6 +506,7 @@ print_bottom_square_next:
     la      $a0,bottom_board_border
     syscall
 
+# End printing squares and restore stack
 end_print_square:
     #restore stack
     lw      $s3,16($sp)
@@ -563,7 +567,7 @@ print_number:
 
 # Prints double digit numbers on the board
 print_double_digit_number:
-    div     $s2,$t0         #divide number by 10
+    div     $s2,$t0         #divide double digit number by 10
     mflo    $t1             #store quotient (tens digit)
     mfhi    $t2             #store remainder (ones digit)
 
@@ -731,7 +735,7 @@ validate_move:
     li      $t0,-1
     beq     $s0,$t0,return_valid_move
 
-    #check if game started, if true check if target move is occupied
+    #check if game started, if true check if position is occupied
     lb      $t0,game_started
     bne     $t0,$zero,check_if_occupied  
 
