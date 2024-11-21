@@ -15,6 +15,7 @@
     .data
     .align 2
 
+# Display strings:
 welcome_line_1:  
     .asciiz "\n****************************\n"
 welcome_line_2:  
@@ -71,16 +72,18 @@ player_2_wins_message:
     .asciiz "**   Player O wins!   **\n"
 game_tie_message:
     .asciiz "**   Game is a tie    **\n"
+
+# Board variables:
 board:
-    .space 25
+    .space 25               #space allocated for the game board state (5x5)
 number_buffer:
-    .space 4
+    .space 4                #space for storing temporary numeric values
 error_type:
-    .byte 0
+    .byte 0                 #byte for tracking the type of error
 game_started:
-    .byte 0
-temp_game_started:
-    .byte 0
+    .byte 0                 #flag indicating whether the game has started
+temp_game_started:      
+    .byte 0                 #temporary flag for game start status
 
 # TEXT BLOCK
     .text
