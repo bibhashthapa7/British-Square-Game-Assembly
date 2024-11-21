@@ -38,7 +38,7 @@ player_1_prompt:
 player_2_prompt:
     .asciiz "\nPlayer O enter a move (-2 to quit, -1 to skip move): "
 illegal_move_message:
-    .asciiz "\nIllegal move, can't place first stone of game in middle square\n"
+    .asciiz"\nIllegal move, can't place first stone of game in middle square\n"
 illegal_location_message:
     .asciiz "\nIllegal location, try again\n"
 illegal_occupied_message:
@@ -110,11 +110,11 @@ game_loop:
     jal     check_legal_moves
     beq     $v0,$zero,handle_no_moves  
 
-    #proceed with player 1 turn if current player is player 1
+    #proceed with player 1's turn if current player is player 1
     li      $t0,1
     beq     $s0,$t0,player_1_turn
 
-    #proceed with player 1 turn if current player is player 1
+    #proceed with player 2's turn if current player is player 2
     li      $t0,2
     beq     $s0,$t0,player_2_turn
 
@@ -166,7 +166,8 @@ check_player_1_legal_moves:
 
 # Handles the case where both players have no legal moves remaining
 handle_both_player_no_moves:
-    li      $a0,0           #indicate the game ended normally (not quit)
+    #indicate the game ended normally (not quit)
+    li      $a0,0           
 
     #print the game results and end game
     jal     print_game_results
@@ -192,14 +193,10 @@ check_legal_moves:
     sw      $s7,32($sp)
 
     move    $s2,$a0         #store current player         
-
-    #load game_started value (0 or 1)
+    
+    #save current game_started value to temp_game_started 
+    #(temp value is being used to preserve original value of game_started)
     lb      $s3,game_started 
-
-    #initialize temp_game_started to 0     
-    sb      $zero,temp_game_started   
-
-    #save game_started to temp_game_started
     sb      $s3,temp_game_started
 
     li      $s0,0           #initialize position index              
@@ -212,7 +209,7 @@ check_position_loop:
     move    $a0,$s2
     move    $a1,$s0              
 
-    #load temp_game_started value and restore game_started value
+    #restore game_started before each validation
     lb      $s4,temp_game_started
     sb      $s4,game_started
 
@@ -220,13 +217,13 @@ check_position_loop:
     jal     validate_move     
 
     #if move is invalid, check next position  
-    beq     $v0,$zero,check_position
+    beq     $v0,$zero,check_position_next
 
     #set s5 to 1 (legal move found) and end check
     li      $s5,1
     j       end_check_legal
 
-check_position:
+check_position_next:
     addi    $s0,$s0,1       #increment position index           
 
     #check all positions on board for legal moves
@@ -317,9 +314,9 @@ initialize_board:
     sw      $s1,8($sp)   
     sw      $s2,12($sp)   
 
-    la      $s0,board   #load base address of board       
-    li      $s1,0       #initialize square counter to 0                
-    li      $s2,25      #store total number of squares on board
+    la      $s0,board       #load base address of board       
+    li      $s1,0           #initialize square counter to 0                
+    li      $s2,25          #store total number of squares on board
 
 # Loops through board and sets each board position to zero
 initialize_board_loop:
@@ -364,8 +361,8 @@ print_board:
     la      $a0,top_board_border
     syscall 
 
-    li      $s0,0       #initialize row counter to 0
-    la      $s3,board   #load base address of board
+    li      $s0,0           #initialize row counter to 0
+    la      $s3,board       #load base address of board
 
 # Prints the divider line for each row
 print_row_divider:
@@ -377,7 +374,7 @@ print_row_divider:
     la      $a0,star
     syscall
 
-    li      $s1,0       #initialize column counter to 0
+    li      $s1,0           #initialize column counter to 0
 
 # Loop to print the top half of each square 
 # Either empty or player piece
@@ -401,12 +398,12 @@ print_top_square_loop:
     #print empty space if position is empty
     beq     $t1,$zero,print_empty_top   
 
-    move    $a1,$t1     #store player number to a1
+    move    $a1,$t1         #store player number to a1
 
     #print player piece
     jal     print_player_piece
 
-    j       print_top_square
+    j       print_top_square_next
 
 # Prints top half of square as empty spaces
 print_empty_top:
@@ -416,7 +413,7 @@ print_empty_top:
     syscall
     syscall
 
-print_top_square:
+print_top_square_next:
     #increment column counter
     addi    $s1,$s1,1
 
@@ -439,7 +436,7 @@ print_top_square:
     la      $a0,star
     syscall
 
-    li      $s1,0       #reset column counter
+    li      $s1,0           #reset column counter
 
 # Loop to print the bottom half of each square 
 # Either square position number or player piece
@@ -464,14 +461,14 @@ print_bottom_square_loop:
     #print player piece 
     jal     print_player_piece
 
-    j       print_bottom_square
+    j       print_bottom_square_next
 
 # Calls print number label 
 print_number_label:
-    move    $a0,$s2     #store position index to a0
+    move    $a0,$s2         #store position index to a0
     jal     print_number
 
-print_bottom_square:
+print_bottom_square_next:
     #increment column index
     addi    $s1,$s1,1       
 
@@ -566,9 +563,9 @@ print_number:
 
 # Prints double digit numbers on the board
 print_double_digit_number:
-    div     $s2,$t0     #divide number by 10
-    mflo    $t1         #store quotient (tens digit)
-    mfhi    $t2         #store remainder (ones digit)
+    div     $s2,$t0         #divide number by 10
+    mflo    $t1             #store quotient (tens digit)
+    mfhi    $t2             #store remainder (ones digit)
 
     #convert digits to ascii characters
     addi    $t1,$t1,48  
@@ -650,14 +647,14 @@ player_1_turn:
     la      $a0,player_1_prompt
     jal     get_player_move
 
-    move    $s1,$v0     #store move in s1      
+    move    $s1,$v0         #store move in s1      
     j       handle_move
 
 # Prompts player 2 to make a move and handles it
 player_2_turn:
     la      $a0,player_2_prompt
     jal     get_player_move
-    move    $s1,$v0     #store move in s1
+    move    $s1,$v0         #store move in s1
 
 # Handles player's move and calls the validate function
 handle_move:
@@ -669,8 +666,8 @@ handle_move:
     li      $t0,-1
     beq     $s1,$t0,switch_player
 
-    move    $a0,$s0     #store current player number to a0
-    move    $a1,$s1     #store current player number to a1
+    move    $a0,$s0         #store current player number to a0
+    move    $a1,$s1         #store current player number to a1
 
     #call function to validate move
     jal     validate_move   
@@ -686,7 +683,7 @@ handle_move:
 
 # Handles the case when player quits the game
 handle_quit:                         
-    li      $a0,1       #indicate that the game was quit   
+    li      $a0,1           #indicate that the game was quit   
 
     #print game results and end game                
     jal     print_game_results
@@ -710,20 +707,20 @@ validate_move:
     sw      $s6,24($sp)
     sw      $s7,28($sp)
 
-    move    $s0,$a1     #store move position to s0     
+    move    $s0,$a1         #store move position     
 
     #initialize error_type to 0       
     li      $s1,0            
     sb      $s1,error_type
 
-    la      $s2,board   #load base address of board        
+    la      $s2,board       #load base address of board        
 
-    #check if move is less than -2 (invalid location)
+    #check if move is less than -2 (illegal location)
     li      $t0,-2
     slt     $t1,$s0,$t0        
     bne     $t1,$zero,set_invalid_location_error
 
-    #check if move is greater than 24 (invalid location)
+    #check if move is greater than 24 (illegal location)
     li      $t0,24
     slt     $t1,$t0,$s0        
     bne     $t1,$zero,set_invalid_location_error
@@ -750,13 +747,13 @@ validate_move:
 
 # Sets the game as started if the first move is valid 
 set_first_move_valid:
-    li      $t0,1       #set game_started to 1 (true)
+    li      $t0,1           #set game_started to 1 (true)
     sb      $t0,game_started
     j       check_if_occupied
 
 # Sets error for invalid move location 
 set_invalid_location_error:
-    #set error_type to 3 (invalid location)    
+    #set error_type to 3 (illegal location)    
     li      $s1,3          
     sb      $s1,error_type
     j       return_invalid_move
@@ -781,8 +778,8 @@ check_if_blocked:
     li      $t0,5
     div     $s0,$t0
     
-    mflo    $s3         #store quotient (row index)               
-    mfhi    $s5         #store remainder (column index)
+    mflo    $s3             #store quotient (row index)               
+    mfhi    $s5             #store remainder (column index)
 
     #determine opponent's player number
     li      $t0,1
@@ -915,7 +912,7 @@ print_error:
 
     #print errors based on error_type value
     li      $t0,1
-    beq     $s1,$t0,print_middle_error
+    beq     $s1,$t0,print_first_move_in_middle_error
     li      $t0,2
     beq     $s1,$t0,print_occupied_error
     li      $t0,3
@@ -929,7 +926,7 @@ print_illegal_location_error:
     j       end_print_error
 
 # Prints error message if move is made in the middle for first move
-print_middle_error:
+print_first_move_in_middle_error:
     la      $a0,illegal_move_message
     j       end_print_error
 
@@ -984,9 +981,9 @@ place_move:
     addi    $sp,$sp,-4
     sw      $ra,0($sp)
 
-    la      $t0,board       #load address of board
-    add     $t0,$t0,$s1     #calculate address of the move position
-    sb      $s0,0($t0)      #store current player's number in position
+    la      $t0,board           #load address of board
+    add     $t0,$t0,$s1         #calculate address of the move position
+    sb      $s0,0($t0)          #store current player's number in position
 
     lw      $ra,0($sp)
     addi    $sp,$sp,4
@@ -1007,18 +1004,18 @@ print_game_results:
     sw      $s2,12($sp)   
     sw      $s3,16($sp)  
 
-    li      $s0,0           #player 1 piece counter           
-    li      $s1,0           #player 2 piece counter
-    li      $s2,0           #position index    
-    la      $t0,board       #load address of board 
+    li      $s0,0               #player 1 piece counter           
+    li      $s1,0               #player 2 piece counter
+    li      $s2,0               #position index    
+    la      $t0,board           #load address of board 
 
     #store if game was quit or not (for printing purposes)
     move    $s3,$a0         
 
 # Loop to count number of pieces on the board for each player
 count_pieces_loop:
-    add     $t1,$t0,$s2     #calculate board position address
-    lb      $t2,0($t1)      #load value of position (value = player number)
+    add     $t1,$t0,$s2         #calculate board position address
+    lb      $t2,0($t1)          #load value of position, value = player number
 
     #check if it is player 1's piece 
     li      $t3,1
@@ -1042,7 +1039,7 @@ count_player_2_pieces:
     addi    $s1,$s1,1
 
 count_pieces:
-    addi    $s2,$s2,1       #increment position index
+    addi    $s2,$s2,1           #increment position index
     
     #check all positions (0-25)
     li      $t3,25
@@ -1077,7 +1074,7 @@ print_total_score:
     syscall
 
     #if game was quit, skip printing winner message
-    bne     $s3,$zero,skip_end_print_winner
+    bne     $s3,$zero,skip_print_winner
 
     la      $a0,winner_border
     syscall
@@ -1115,7 +1112,7 @@ end_print_winner:
     jr      $ra
 
 # Skips printing winner message and only restores stack
-skip_end_print_winner:
+skip_print_winner:
     #restore stack
     lw      $s3,16($sp)
     lw      $s2,12($sp)
